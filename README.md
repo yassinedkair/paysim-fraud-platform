@@ -30,12 +30,17 @@ Ce schéma décrit la cible, pas des composants déjà implémentés.
 
 ## Démarrage local
 
-Python 3.11 est la version cible pour l'intégration des outils. Depuis la racine,
-les commandes PowerShell suivantes créent un environnement isolé, installent
-le package avec pytest puis exécutent les tests. L'activation n'est pas nécessaire.
+Le développement local utilise Python 3.13. Depuis la racine du projet,
+créez l'environnement isolé uniquement s'il n'existe pas encore :
 
 ```powershell
-py -3.11 -m venv .venv
+py -3.13 -m venv .venv
+```
+
+Si `.venv` existe déjà, conservez-le et passez directement à l'installation
+du package et à l'exécution des tests. L'activation n'est pas nécessaire :
+
+```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest -q
 ```
