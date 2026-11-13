@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: Projection du Parquet Silver avec les noms de colonnes analytiques.
+  - name: dim_date
+    description: Une ligne par jour simulé observé. Les heures 1 à 24 forment le premier jour.
+    columns:
+      - name: simulation_day
+        data_tests: [not_null, unique]
+  - name: dim_transaction_type
+    description: Une ligne par type de transaction observé.
+    columns:
+      - name: transaction_type
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: [CASH_IN, CASH_OUT, DEBIT, PAYMENT, TRANSFER]
+  - name: fact_transactions
+    description: Une ligne par transaction Silver, avec le montant et la cible de fraude.
+    columns:
+      - name: transaction_id
+        data_tests: [not_null, unique]
+      - name: simulation_day
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: simulation_day
+      - name: transaction_type
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_transaction_type')
+                field: transaction_type
+      - name: amount
+        data_tests: [not_null]
+      - name: is_fraud
+        data_tests: [not_null]

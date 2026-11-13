@@ -1,0 +1,5 @@
+FROM apache/airflow:3.3.2
+
+COPY --chown=airflow:root pyproject.toml /opt/fraud-platform/
+COPY --chown=airflow:root src /opt/fraud-platform/src
+RUN pip install --no-cache-dir "apache-airflow==3.3.2" "/opt/fraud-platform[quality]" azure-identity azure-storage-blob

@@ -1,0 +1,8 @@
+fraud_detection:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FRAUD_DUCKDB_PATH', 'data/gold/fraud.duckdb') }}"
+      schema: gold
+      threads: 2

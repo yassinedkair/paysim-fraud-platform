@@ -10,6 +10,10 @@
 data/
 artifacts/
 mlruns/
+logs/
+dbt/target/
+dbt/.user.yml
+config/airflow.cfg
 *.duckdb
 *.duckdb.wal
 

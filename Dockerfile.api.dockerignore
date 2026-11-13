@@ -1,0 +1,12 @@
+**
+!pyproject.toml
+!src/
+!src/**
+src/**/__pycache__/
+src/**/*.egg-info/
+!artifacts/
+artifacts/*
+!artifacts/lightgbm/
+artifacts/lightgbm/*
+!artifacts/lightgbm/lightgbm.joblib
+!artifacts/lightgbm/threshold_margin.json

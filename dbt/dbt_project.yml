@@ -1,0 +1,12 @@
+name: fraud_detection
+version: '1.0.0'
+config-version: 2
+profile: fraud_detection
+model-paths: [models]
+test-paths: [tests]
+models:
+  fraud_detection:
+    staging:
+      +materialized: view
+    gold:
+      +materialized: table
