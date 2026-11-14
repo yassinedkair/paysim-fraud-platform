@@ -1,118 +1,99 @@
 # Plateforme de détection de fraude
 
-Projet portfolio Data Engineering et Data Science : construire progressivement
-une plateforme de détection de fraude, de l'ingestion au scoring cloud.
-PaySim fournit les données de transactions simulées utilisées dans le projet.
+Pipeline de données et API de scoring construits sur **PaySim**, un jeu de transactions financières simulées. Le projet couvre l’ingestion et le contrôle qualité, la modélisation SQL, l’entraînement et l’explication d’un modèle, puis sa mise à disposition dans une API locale.
 
-**État : semaines 1 à 4 terminées.** Bronze, Silver et Gold sont disponibles sur ADLS Gen2. La régression logistique et LightGBM ont été comparés, enregistrés dans MLflow et le score LightGBM a été expliqué avec SHAP. Le déploiement de l'API reste à faire.
-Les performances seront publiées uniquement après évaluation reproductible.
+| Composant | Rôle |
+| --- | --- |
+| Airflow, Azure ADLS Gen2 et Great Expectations | Ingestion du CSV, publication de Bronze, validation de Silver et mise en quarantaine des rejets |
+| dbt et DuckDB | Construction et tests du modèle Gold avec les transactions, les jours simulés et les types de transaction |
+| scikit-learn, LightGBM, MLflow et SHAP | Comparaison des modèles, suivi des expériences et explication des scores |
+| FastAPI et Docker | Scoring local et décision d’alerte à partir du montant, du type et de l’heure simulée |
+| GitHub Actions | Vérification automatique des tests Python et dbt, puis construction et test HTTP du conteneur |
 
-## Architecture cible
+## Exécution locale
 
-```mermaid
-flowchart TD
-    P[PaySim] --> A[Airflow local · Docker Compose]
-    A --> B[ADLS Gen2 · Bronze]
-    B --> Q[Great Expectations]
-    Q --> S[ADLS Gen2 · Silver]
-    Q --> X[Quarantine]
-    S --> D[dbt + DuckDB]
-    D --> G[ADLS Gen2 · Gold]
-    S --> M[Régression logistique / LightGBM]
-    M --> E[MLflow + SHAP]
-    E --> F[FastAPI · Docker]
-    F --> R[ACR Basic · démo]
-    R --> C[Container Apps · scale-to-zero]
-    H[GitHub Actions] --> F
-    H --> C
-```
+Les commandes s’exécutent dans **PowerShell**, à la racine du dépôt. Il faut Python 3.13 et Docker Desktop pour la démo conteneurisée.
 
-Ce schéma décrit la cible, pas des composants déjà implémentés.
+### 1. Préparer les données
 
-## Démarrage local
-
-Le développement local utilise Python 3.13. Depuis la racine du projet,
-créez l'environnement isolé uniquement s'il n'existe pas encore :
+Crée l’environnement Python si nécessaire et installe les dépendances.
 
 ```powershell
 py -3.13 -m venv .venv
+$python = '.\.venv\Scripts\python.exe'
+& $python -m pip install -e '.[analytics,modeling,api,dev,tracking]'
 ```
 
-Si `.venv` existe déjà, conservez-le et passez directement à l'installation
-du package et à l'exécution des tests. L'activation n'est pas nécessaire :
+Télécharge le CSV PaySim décrit dans la [fiche source](docs/data-source.md) et place-le dans `data/raw/`. Les commandes suivantes créent les Parquet Bronze et Silver, construisent les tables Gold et préparent les jeux chronologiques du modèle.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m pytest -q
+$source = 'data/raw/PS_20174392719_1491204439457_log.csv'
+& $python -m fraud_platform.pipeline $source
+$sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $source).Hash.ToLowerInvariant()
+$env:FRAUD_SILVER_PATH = "data/silver/$sha.parquet"
+.\.venv\Scripts\dbt.exe build --project-dir dbt --profiles-dir dbt
+& $python -m fraud_platform.features
 ```
 
-Pour créer les dossiers locaux sans télécharger de données :
+### 2. Entraîner le modèle
+
+L’entraînement écrit le modèle et ses métriques de validation dans `artifacts/`. Pour reproduire la démo, le bloc suivant enregistre le seuil fixé lors des expériences.
 
 ```powershell
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from fraud_platform.config import DataPaths; DataPaths(Path('data')).create()"
+& $python -m fraud_platform.baseline
+& $python -m fraud_platform.boosted
+if (-not (Test-Path artifacts/lightgbm/threshold_margin.json)) {
+    '{"validation":{"threshold":0.5617293409892409}}' |
+        Set-Content -Encoding ascii artifacts/lightgbm/threshold_margin.json
+}
 ```
 
-## Organisation
+### 3. Lancer l’API
 
-```text
-src/fraud_platform/   Code Python réutilisable
-tests/               Tests automatisés
-docs/                Décisions et suivi du projet
-data/raw/            Source PaySim originale (hors Git)
-data/bronze/         Copie technique en Parquet
-data/silver/         Données validées en Parquet
-data/gold/           Base DuckDB contenant le modèle analytique
-data/quarantine/     Lignes rejetées et motifs en Parquet
-```
-
-## Données et prévention des fuites
-
-PaySim contient des transactions financières simulées. Le nom du fichier et
-son empreinte sont documentés dans [la fiche source](docs/data-source.md).
-
-Depuis la racine, cette commande analyse le CSV et écrit un rapport JSON local
-avec les volumes, les valeurs manquantes, les doublons et les fraudes par type
-et par heure simulée (`step`).
+Démarre l’API avec l’une des deux méthodes ci-dessous.
 
 ```powershell
-.\.venv\Scripts\python.exe -m fraud_platform.eda data/raw/PS_20174392719_1491204439457_log.csv --output artifacts/eda/paysim.json
+& $python -m uvicorn fraud_platform.api:app --host 127.0.0.1 --port 8000
 ```
-
-L'évaluation utilisera une séparation temporelle par `step`. Les quatre colonnes
-de solde et `isFlaggedFraud` seront exclues des variables de scoring ;
-`isFraud` sera exclusivement la cible. Les identifiants de comptes ne seront
-pas utilisés directement comme variables. Toute transformation apprise sera
-ajustée sur l'entraînement uniquement.
-
-## Générer les couches locales
-
-Après l'installation des dépendances et le téléchargement de PaySim, cette
-commande construit Bronze, Silver et Quarantine par lots. Chaque couche reçoit
-un fichier Parquet nommé d'après le SHA-256 de la source.
 
 ```powershell
-.\.venv\Scripts\python.exe -m fraud_platform.pipeline data/raw/PS_20174392719_1491204439457_log.csv
+docker build -f Dockerfile.api -t fraud-detection-api:local .
+docker run --rm -p 127.0.0.1:8000:8000 fraud-detection-api:local
 ```
 
-Les règles de validation et l'identifiant des transactions sont décrits dans
-[le contrat de données](docs/data-contract.md).
+Ouvre [Swagger](http://127.0.0.1:8000/docs). Dans **POST /predict**, clique sur **Try it out**, saisis la transaction suivante et clique sur **Execute**.
 
-## Budget et secrets
+```json
+{"amount": 500, "transaction_type": "TRANSFER", "hour_of_day": 0}
+```
 
-- Budget Azure cumulé de 30 USD pour l'ensemble du projet, tous services et déploiements compris.
-- À 30 USD de coûts cumulés constatés, envoyer un e-mail et prévoir l'arrêt automatique de l'API Container Apps. La décision concernant les données et le stockage reste manuelle. Toute suppression exige une décision explicite.
-- Vérifier les frais résiduels des ressources conservées, notamment le registre ACR. Le seuil dépend du délai de remontée des coûts Azure.
-- Suivre les coûts dans le groupe dédié `rg-fraud-detection`.
-- ACR Basic sera réservé à la démonstration puis supprimé avec les ressources inutiles.
-- Aucun secret dans Git, les notebooks, les logs ou les images Docker.
-- `.env` et les données sont ignorés ; `.env.example` ne contient aucun secret.
-- Managed Identity et fédération GitHub/Azure seront privilégiées si disponibles.
+L’API renvoie le score, le seuil et la décision `alert`. Le score sert à classer les transactions par risque. `GET /health` vérifie la disponibilité du service et `GET /model-info` affiche le modèle et son seuil.
 
-## Suivi
+### 4. Vérifier le projet
 
-Après validation du projet principal en semaine 5, la semaine 6 couvrira
-Terraform, l'analyse NLP des réclamations CFPB et la surveillance de dérive
-avec Evidently. Les extensions seront d'abord testées localement, dans le
-respect du budget Azure cumulé de 30 USD.
+```powershell
+& $python -m pytest -q
+```
 
-Voir [la checklist de semaine 1](docs/week-01.md), [le suivi de semaine 2](docs/week-02.md), [le guide Gold de la semaine 3](docs/week-03.md) et [les expériences de la semaine 4](docs/week-04.md).
+Le [workflow GitHub Actions](.github/workflows/ci.yml) utilise des transactions fictives pour vérifier le parcours jusqu’à l’API Docker.
+
+## Exécution avec Airflow et Azure
+
+Copie [`.env.example`](.env.example) vers `.env` si ce dernier n’existe pas. Renseigne les paramètres Airflow et ceux de l’identité Microsoft Entra autorisée à lire et écrire dans le conteneur ADLS. Prépare le compte ADLS Gen2 et le conteneur privé avant de lancer le DAG. Les valeurs sensibles restent dans `.env`, ignoré par Git.
+
+```powershell
+docker compose build airflow-worker
+docker compose up airflow-init
+docker compose up -d
+```
+
+Dans [Airflow](http://127.0.0.1:8081), déclenche `fraud_detection_ingest` avec le nom du CSV local dans le paramètre `source_file`. Le DAG publie Bronze, le relit depuis ADLS pour produire Silver, puis publie les rejets et le rapport qualité.
+
+## Extensions
+
+- **SHAP**. Après l’entraînement, exécute `python -m fraud_platform.explain` avec l’environnement du projet. Le rapport et le graphique sont générés dans `artifacts/lightgbm/`.
+- **NLP CFPB**. Décompresse un export de [l’archive des récits CFPB](https://www.consumerfinance.gov/foia-requests/foia-electronic-reading-room/cfpb-consumer-complaint-database-narratives-archive/) dans `data/raw/cfpb-narratives.csv`, puis exécute `python -m fraud_platform.complaints data/raw/cfpb-narratives.csv`. Le Parquet, le modèle et les métriques sont écrits dans `data/complaints/`.
+- **Terraform**. Le module [`infra/`](infra/) décrit le groupe, le stockage ADLS et Key Vault. Pour vérifier la configuration, exécute `terraform -chdir=infra init -backend=false` puis `terraform -chdir=infra validate`.
+- **Evidently**. Le module `fraud_platform.monitoring` produit les rapports de dérive dans `artifacts/monitoring/`. Pour Evidently 0.7, utilise pandas 2.3.3 dans un environnement dédié avec les extras `modeling,monitoring`, puis exécute `python -m fraud_platform.monitoring`.
+
+[Source PaySim](docs/data-source.md) · [Contrat de données](docs/data-contract.md)

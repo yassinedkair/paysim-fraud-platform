@@ -1,4 +1,9 @@
 # Secrets et identités locales
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
 .env
 .env.*
 !.env.example
