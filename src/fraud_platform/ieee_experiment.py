@@ -62,7 +62,8 @@ def chronological_split(data):
 
 
 def feature_frame(data, enhanced=False):
-    result = data.drop(columns=['TransactionID', 'TransactionDT', 'isFraud']).copy()
+    raw = data.drop(columns=['TransactionID', 'TransactionDT', 'isFraud'], errors='ignore')
+    result = raw.copy()
     result['hour'] = (data.TransactionDT // 3600 % 24).astype('float32')
     result['day_in_week'] = (data.TransactionDT // 86400 % 7).astype('float32')
     for column in result.columns.intersection(list(CATEGORICAL)):
@@ -71,7 +72,7 @@ def feature_frame(data, enhanced=False):
         for column in ('D1', 'D2', 'D4', 'D10', 'D15'):
             result[f'{column}_origin_day'] = (data.TransactionDT / 86400 - data[column]).astype('float32')
         result['amount_fraction'] = (data.TransactionAmt % 1).astype('float32')
-        result['missing_fields'] = data.drop(columns=['TransactionID', 'TransactionDT', 'isFraud']).isna().sum(axis=1).astype('float32')
+        result['missing_fields'] = raw.isna().sum(axis=1).astype('float32')
         result['card_address'] = result['card1'] + '_' + result['card2'] + '_' + result['addr1']
     return result
 

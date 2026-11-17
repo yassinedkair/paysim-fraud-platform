@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analyse de transaction · IEEE-CIS</title>
+  <link rel="stylesheet" href="/ui-assets/dashboard.css">
+  <script src="/ui-assets/ieee.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="frame topbar-content">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span> IEEE-CIS <span class="brand-context">/ Détection de fraude</span></div>
+      <nav class="model-nav" aria-label="Navigation"><a href="/">PaySim</a><a href="/ieee" aria-current="page">IEEE-CIS</a><a href="/docs">Documentation API ↗</a></nav>
+    </div>
+  </header>
+  <main class="frame">
+    <div class="intro">
+      <h1>Analyse d’un paiement en ligne</h1>
+      <p>Charge une transaction IEEE-CIS pour la tester avec LightGBM.</p>
+      <p id="ieee-model-status" role="status"></p>
+    </div>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="import-title">
+        <h2 id="import-title">Transaction IEEE-CIS</h2>
+        <form id="ieee-form">
+          <label for="ieee-file">Importer un fichier JSON</label>
+          <input id="ieee-file" type="file" accept=".json,application/json">
+          <div class="presets"><button id="ieee-example" type="button">Charger un exemple IEEE-CIS</button></div>
+          <label for="ieee-json">Données de la transaction</label>
+          <textarea id="ieee-json" rows="9" required spellcheck="false" aria-describedby="ieee-hint"></textarea>
+          <p id="ieee-hint" class="field-hint">Indique au minimum TransactionDT (temps relatif en secondes) et TransactionAmt (montant). Les autres champs absents sont traités comme manquants.</p>
+          <button id="submit" type="submit">Analyser la transaction <span aria-hidden="true">→</span></button>
+          <p id="error" class="form-error" role="alert" hidden></p>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="result-title">
+        <h2 id="result-title">Résultat du scoring</h2>
+        <div id="state" role="status">En attente d’une analyse.</div>
+        <dl class="metric-grid" id="ieee-result" hidden>
+          <div><dt>Score du modèle</dt><dd id="score"></dd></div>
+          <div><dt>Seuil d’alerte</dt><dd id="threshold"></dd></div>
+        </dl>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

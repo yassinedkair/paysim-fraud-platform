@@ -19,6 +19,10 @@ body { margin: 0; }
 .brand-mark { width: 15px; height: 15px; border: 3px solid #64dec6; border-radius: 4px; transform: rotate(45deg); }
 .brand-context { color: #c3d1e3; font-size: 0.86rem; font-weight: 400; }
 .topbar a { color: #e9f1fb; font-size: 0.85rem; text-underline-offset: 4px; }
+.model-nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.model-nav [aria-current="page"] { color: #64dec6; font-weight: 700; }
+#ieee-json { width: 100%; padding: 12px; border: 1px solid #abbaca; border-radius: 8px; font: 0.85rem monospace; resize: vertical; }
+#ieee-form .presets { margin-bottom: 18px; }
 .intro { padding-block: clamp(36px, 6vw, 78px) 34px; }
 h1 { margin: 0 0 10px; font-size: clamp(2rem, 4.6vw, 3.2rem); letter-spacing: -0.05em; line-height: 1.06; }
 .intro p { color: var(--muted); line-height: 1.55; margin: 0; }

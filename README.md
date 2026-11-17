@@ -21,7 +21,7 @@ Place `train_transaction.csv` et `train_identity.csv` dans `data/raw/`. Les comm
 .\.venv\Scripts\python.exe -m fraud_platform.ieee_experiment
 ```
 
-Les rapports et le modèle sont enregistrés dans `artifacts/ieee_cis/`. `manifest.json` décrit la séparation, les empreintes des sources, le modèle retenu et son seuil. `validation.json` compare les candidats et `test.json` indique si les trois objectifs dépassent 80 %. Cette expérience utilise les champs IEEE-CIS. L’interface actuelle utilise le modèle PaySim.
+Les rapports et le modèle sont enregistrés dans `artifacts/ieee_cis/`. `manifest.json` décrit la séparation, les empreintes des sources, le modèle retenu et son seuil. `validation.json` compare les candidats et `test.json` indique si les trois objectifs dépassent 80 %.
 
 Pour comparer les deux variantes LightGBM enrichies avec une cible de 60 % de précision et de rappel, la commande suivante écrit les résultats dans un dossier distinct. L’accuracy minimale reste fixée à 80 %. Le rapport signale la réutilisation de la période de test comme diagnostic.
 
@@ -82,6 +82,8 @@ docker run --rm -p 127.0.0.1:8000:8000 fraud-detection-api:local
 ```
 
 Ouvre [l’interface de scoring](http://127.0.0.1:8000/). Choisis un exemple ou saisis le type, le montant et l’heure, puis clique sur **Analyser la transaction** pour voir le score, le seuil et la décision du modèle de démonstration.
+
+L’onglet [IEEE-CIS](http://127.0.0.1:8000/ieee) charge le modèle de `artifacts/ieee_cis_60/` au démarrage. Utilise **Charger un exemple IEEE-CIS** si `data/raw/train_transaction.csv` est disponible, ou importe un fichier JSON contenant une seule transaction. `IEEE_MODEL_DIR` configure le dossier du modèle et `IEEE_DATA_DIR` configure le dossier du CSV. Avec Docker, monte ces dossiers dans le conteneur et passe leurs chemins via ces variables.
 
 Pour tester directement le JSON dans [Swagger](http://127.0.0.1:8000/docs), ouvre **POST /predict** et clique sur **Try it out**.
 
