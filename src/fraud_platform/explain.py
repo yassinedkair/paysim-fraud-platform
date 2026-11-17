@@ -24,7 +24,7 @@ def explain_lightgbm(source: Path, directory: Path) -> dict:
     sample = validation.sample(n=min(2000, len(validation)), random_state=42)
     example = {"amount": 500.0, "transaction_type": "TRANSFER", "hour_of_day": 0}
     inputs = pd.concat([sample, pd.DataFrame([example])], ignore_index=True)
-    transformed = model.named_steps["preprocess"].transform(inputs)
+    transformed = model[:-1].transform(inputs)
     booster = model.named_steps["classifier"].booster_
     values = booster.predict(transformed, pred_contrib=True, validate_features=True)
     scores = model.predict_proba(inputs)[:, 1]

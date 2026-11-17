@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analyse de transaction · PaySim</title>
+  <link rel="stylesheet" href="/ui-assets/dashboard.css">
+  <script src="/ui-assets/dashboard.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="frame topbar-content">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span> PaySim <span class="brand-context">/ Détection de fraude</span></div>
+      <a href="/docs">Documentation API <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+  <main class="frame">
+    <div class="intro">
+      <h1>Analyse de transaction</h1>
+      <p>Teste une transaction simulée et consulte la décision du modèle LightGBM de démonstration.</p>
+      <p id="model-metrics" hidden></p>
+    </div>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="transaction-title">
+        <h2 id="transaction-title">Transaction</h2>
+        <form id="transaction-form">
+          <label for="transaction-type">Type d’opération</label>
+          <select id="transaction-type" name="transaction_type" required>
+            <option value="TRANSFER">Transfert</option>
+            <option value="CASH_OUT">Retrait</option>
+            <option value="PAYMENT">Paiement</option>
+            <option value="CASH_IN">Dépôt</option>
+            <option value="DEBIT">Débit</option>
+          </select>
+          <div class="fields">
+            <div>
+              <label for="amount">Montant</label>
+              <input id="amount" name="amount" type="number" min="0" step="any" value="500" required>
+              <p class="field-hint">En unités PaySim</p>
+            </div>
+            <div>
+              <label for="hour">Heure simulée</label>
+              <input id="hour" name="hour_of_day" type="number" min="0" max="23" step="1" value="12" required>
+              <p class="field-hint">De 0 à 23</p>
+            </div>
+          </div>
+          <button id="submit" type="submit">Analyser la transaction <span aria-hidden="true">→</span></button>
+          <p id="error" class="form-error" role="alert" hidden></p>
+        </form>
+        <div class="presets" aria-label="Exemples de transactions">
+          <span>Exemples</span>
+          <button type="button" data-type="PAYMENT" data-amount="75" data-hour="14">Paiement de 75</button>
+          <button type="button" data-type="TRANSFER" data-amount="900000" data-hour="2">Transfert de 900 000</button>
+        </div>
+      </section>
+      <section class="panel result" aria-labelledby="result-title">
+        <h2 id="result-title">Résultat du scoring</h2>
+        <div id="state" role="status" aria-live="polite">En attente d’une analyse.</div>
+        <div id="result" hidden>
+          <p id="transaction-summary" class="transaction-summary"></p>
+          <dl class="metric-grid">
+            <div><dt>Score du modèle</dt><dd id="score"></dd></div>
+            <div><dt>Seuil d’alerte</dt><dd id="threshold"></dd></div>
+          </dl>
+          <div class="meter" aria-hidden="true"><div id="score-fill"></div><span id="threshold-mark"></span></div>
+          <div class="scale" aria-hidden="true"><span>0</span><span>1</span></div>
+          <p class="result-note">Une alerte se déclenche quand le score atteint le seuil. Le score sert à classer le risque.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

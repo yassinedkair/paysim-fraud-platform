@@ -14,12 +14,16 @@ dev = ["pytest>=8,<9"]
 quality = ["great-expectations==1.24.1"]
 analytics = ["dbt-duckdb>=1.9,<2"]
 modeling = ["duckdb>=1.0", "scikit-learn>=1.6,<2", "pandas>=2.2.3,<4", "lightgbm>=4.6,<5"]
+ieee = ["catboost>=1.2,<2"]
 tracking = ["mlflow>=3,<4"]
 monitoring = ["evidently>=0.7,<0.8"]
 api = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+fraud_platform = ["web/*.html", "web/*.css", "web/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

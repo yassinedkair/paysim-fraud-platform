@@ -10,6 +10,8 @@ from typing import Literal
 import joblib
 import pandas as pd
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from fraud_platform.features import FEATURE_COLUMNS
@@ -41,10 +43,21 @@ def create_app(model_dir: Path | None = None) -> FastAPI:
             raise ValueError("Le seuil doit être compris entre 0 et 1")
         app.state.model = joblib.load(directory / "lightgbm.joblib")
         app.state.threshold = threshold
+        app.state.validation = {
+            key: decision["validation"][key]
+            for key in ("precision", "recall", "accuracy", "targets_met")
+            if key in decision["validation"]
+        }
         logger.info("Modèle LightGBM chargé, seuil=%s", threshold)
         yield
 
     app = FastAPI(title="API de détection de fraude", lifespan=lifespan)
+    web = Path(__file__).with_name("web")
+    app.mount("/ui-assets", StaticFiles(directory=web), name="ui-assets")
+
+    @app.get("/", include_in_schema=False)
+    def dashboard():
+        return FileResponse(web / "index.html", media_type="text/html")
 
     @app.get("/health")
     def health():
@@ -52,7 +65,8 @@ def create_app(model_dir: Path | None = None) -> FastAPI:
 
     @app.get("/model-info")
     def model_info():
-        return {"model": "lightgbm", "features": FEATURE_COLUMNS, "threshold": app.state.threshold}
+        return {"model": "lightgbm", "features": FEATURE_COLUMNS, "threshold": app.state.threshold,
+                "validation": app.state.validation}
 
     @app.post("/predict", response_model=Prediction)
     def predict(transaction: Transaction):

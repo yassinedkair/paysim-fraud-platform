@@ -12,6 +12,23 @@ Pipeline de données et API de scoring construits sur **PaySim**, un jeu de tran
 
 ## Exécution locale
 
+### Expérience IEEE-CIS
+
+Place `train_transaction.csv` et `train_identity.csv` dans `data/raw/`. Les commandes suivantes installent CatBoost, comparent les deux modèles sur la validation chronologique, puis évaluent le modèle retenu sur la dernière période. Les proportions sont 70 % pour l’entraînement, 15 % pour la validation et 15 % pour le test, en conservant les instants identiques dans une seule période.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e '.[modeling,ieee]'
+.\.venv\Scripts\python.exe -m fraud_platform.ieee_experiment
+```
+
+Les rapports et le modèle sont enregistrés dans `artifacts/ieee_cis/`. `manifest.json` décrit la séparation, les empreintes des sources, le modèle retenu et son seuil. `validation.json` compare les candidats et `test.json` indique si les trois objectifs dépassent 80 %. Cette expérience utilise les champs IEEE-CIS. L’interface actuelle utilise le modèle PaySim.
+
+Pour comparer les deux variantes LightGBM enrichies avec une cible de 60 % de précision et de rappel, la commande suivante écrit les résultats dans un dossier distinct. L’accuracy minimale reste fixée à 80 %. Le rapport signale la réutilisation de la période de test comme diagnostic.
+
+```powershell
+.\.venv\Scripts\python.exe -m fraud_platform.ieee_experiment --enhanced --target 0.6 --iterations 1600 --output artifacts/ieee_cis_60
+```
+
 Les commandes s’exécutent dans **PowerShell**, à la racine du dépôt. Il faut Python 3.13 et Docker Desktop pour la démo conteneurisée.
 
 ### 1. Préparer les données
@@ -37,7 +54,7 @@ $env:FRAUD_SILVER_PATH = "data/silver/$sha.parquet"
 
 ### 2. Entraîner le modèle
 
-L’entraînement écrit le modèle et ses métriques de validation dans `artifacts/`. Pour reproduire la démo, le bloc suivant enregistre le seuil fixé lors des expériences.
+L’entraînement écrit les modèles dans `artifacts/`. La recherche compare plusieurs pondérations de LightGBM et choisit un seuil sur la validation. Elle vise plus de 80 % de précision, de rappel et d’accuracy. Si ces objectifs sont inaccessibles, elle maximise le plus petit score entre précision et rappel, avec une accuracy supérieure à 80 %. Le rapport indique explicitement si les objectifs sont atteints.
 
 ```powershell
 & $python -m fraud_platform.baseline
@@ -46,7 +63,10 @@ if (-not (Test-Path artifacts/lightgbm/threshold_margin.json)) {
     '{"validation":{"threshold":0.5617293409892409}}' |
         Set-Content -Encoding ascii artifacts/lightgbm/threshold_margin.json
 }
+& $python -m fraud_platform.tune_scoring
 ```
+
+Le dossier `artifacts/scoring_balanced/` contient le candidat et le rapport `comparison.json`. Pour le tester localement, définis `$env:FRAUD_MODEL_DIR = 'artifacts/scoring_balanced'` avant de lancer FastAPI. La période de test déjà consultée fournit un diagnostic supplémentaire. Une confirmation indépendante demande de nouvelles données. Les variables dérivées du montant sont calculées à l’identique pendant l’entraînement et dans l’API.
 
 ### 3. Lancer l’API
 
@@ -61,7 +81,9 @@ docker build -f Dockerfile.api -t fraud-detection-api:local .
 docker run --rm -p 127.0.0.1:8000:8000 fraud-detection-api:local
 ```
 
-Ouvre [Swagger](http://127.0.0.1:8000/docs). Dans **POST /predict**, clique sur **Try it out**, saisis la transaction suivante et clique sur **Execute**.
+Ouvre [l’interface de scoring](http://127.0.0.1:8000/). Choisis un exemple ou saisis le type, le montant et l’heure, puis clique sur **Analyser la transaction** pour voir le score, le seuil et la décision du modèle de démonstration.
+
+Pour tester directement le JSON dans [Swagger](http://127.0.0.1:8000/docs), ouvre **POST /predict** et clique sur **Try it out**.
 
 ```json
 {"amount": 500, "transaction_type": "TRANSFER", "hour_of_day": 0}

@@ -31,6 +31,16 @@ def test_predict_uses_saved_threshold_and_alerts_at_equality(client):
     assert response.json() == {"score": 0.6, "threshold": 0.6, "alert": True}
 
 
+def test_dashboard_serves_the_form_and_scoring_assets(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert 'id="transaction-form"' in page.text
+    for filename in ("dashboard.css", "dashboard.js"):
+        path = f"/ui-assets/{filename}"
+        assert path in page.text
+        assert client.get(path).status_code == 200
+
+
 @pytest.mark.parametrize("field,value", [("amount", -1), ("transaction_type", "OTHER"), ("hour_of_day", 24)])
 def test_predict_rejects_invalid_transaction(client, field, value):
     payload = {"amount": 500, "transaction_type": "TRANSFER", "hour_of_day": 0}

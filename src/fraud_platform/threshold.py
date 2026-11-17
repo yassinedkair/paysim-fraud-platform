@@ -15,6 +15,34 @@ REFERENCE_COST_RATIO = 20
 MAX_ERROR_RATE = 0.15
 
 
+def choose_balanced_threshold(labels, scores, target: float = 0.8) -> dict:
+    """Vise 80 % sur les trois métriques, sinon maximise min(précision, rappel)."""
+    if not 0 < target < 1:
+        raise ValueError("La cible doit être comprise entre 0 et 1")
+    labels = np.asarray(labels, dtype=bool)
+    scores = np.asarray(scores, dtype=float)
+    if labels.size == 0 or labels.all() or not labels.any():
+        raise ValueError("La validation doit contenir les deux classes")
+    if scores.shape != labels.shape or not np.isfinite(scores).all():
+        raise ValueError("Les scores doivent être finis et alignés avec les étiquettes")
+    fpr, recall, thresholds = roc_curve(labels, scores, drop_intermediate=False)
+    positives = int(labels.sum())
+    tp = np.rint(recall * positives)
+    fp = np.rint(fpr * (len(labels) - positives))
+    precision = np.divide(tp, tp + fp, out=np.zeros_like(tp), where=tp + fp > 0)
+    accuracy = 1 - (fp + positives - tp) / len(labels)
+    feasible = (precision > target) & (recall > target) & (accuracy > 0.8)
+    eligible = np.flatnonzero(feasible if feasible.any() else (accuracy > 0.8) & np.isfinite(thresholds))
+    if not eligible.size:
+        raise ValueError("Aucun seuil ne dépasse 80 % d'accuracy")
+    objective = np.minimum(precision, recall)
+    index = eligible[np.argmax(objective[eligible])]
+    return {
+        **summarize_decisions(labels, scores, float(thresholds[index]), REFERENCE_COST_RATIO),
+        "accuracy": float(accuracy[index]), "targets_met": bool(feasible[index]),
+    }
+
+
 def choose_recall_under_error_cap(labels, scores) -> dict:
     """Maximise le rappel sous le plafond d'erreur globale."""
     labels = np.asarray(labels, dtype=bool)

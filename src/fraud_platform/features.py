@@ -8,6 +8,18 @@ import duckdb
 
 FEATURE_COLUMNS = ("amount", "transaction_type", "hour_of_day")
 TARGET_COLUMN = "is_fraud"
+
+
+def enrich_scoring_features(frame):
+    """Dérive des variables du montant à l'identique en entraînement et en API."""
+    import numpy as np
+
+    enriched = frame.loc[:, list(FEATURE_COLUMNS)].copy()
+    cents = np.rint(enriched["amount"] * 100)
+    enriched["amount_cents"] = cents % 100
+    enriched["whole_amount"] = (cents % 100 == 0).astype(int)
+    enriched["round_thousand"] = (cents % 100000 == 0).astype(int)
+    return enriched
 TRAIN_LAST_HOUR = 520
 VALIDATION_LAST_HOUR = 631
 
